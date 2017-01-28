@@ -85,7 +85,7 @@ class HttpAmazonESConnector extends HttpConnector {
 
     console.log('signing http-aws-es request with credentials: ' + JSON.stringify(this.creds));
     this.creds.get(_.bind(function (err) {
-      if (err) return cleanup(err);
+      if (err) return cleanUp(err);
       console.log('http-aws-es got credentials: ' + JSON.stringify(this.creds));
       // Sign the request (Sigv4)
       var signer = new AWS.Signers.V4(request, 'es');

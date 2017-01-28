@@ -83,39 +83,47 @@ class HttpAmazonESConnector extends HttpConnector {
     request.headers['presigned-expires'] = false;
     request.headers['Host'] = this.endpoint.host;
 
-    // Sign the request (Sigv4)
-    var signer = new AWS.Signers.V4(request, 'es');
-    signer.addAuthorization(this.creds, new Date());
+    console.log('signing http-aws-es request with credentials: ' + JSON.stringify(this.creds));
+    this.creds.get(_.bind(function (err) {
+      if (err) return cleanup(err);
+      console.log('http-aws-es got credentials: ' + JSON.stringify(this.creds));
+      // Sign the request (Sigv4)
+      var signer = new AWS.Signers.V4(request, 'es');
+      signer.addAuthorization(this.creds, new Date());
 
-    var send = new AWS.NodeHttpClient();
-    req = send.handleRequest(request, null, function (_incoming) {
-      incoming = _incoming;
-      status = incoming.statusCode;
-      headers = incoming.headers;
-      response = '';
+      var send = new AWS.NodeHttpClient();
+      req = send.handleRequest(request, null, function (_incoming) {
+        incoming = _incoming;
+        status = incoming.statusCode;
+        headers = incoming.headers;
+        response = '';
 
-      var encoding = (headers['content-encoding'] || '').toLowerCase();
-      if (encoding === 'gzip' || encoding === 'deflate') {
-        incoming = incoming.pipe(zlib.createUnzip());
-      }
+        var encoding = (headers['content-encoding'] || '').toLowerCase();
+        if (encoding === 'gzip' || encoding === 'deflate') {
+          incoming = incoming.pipe(zlib.createUnzip());
+        }
 
-      incoming.setEncoding('utf8');
-      incoming.on('data', function (d) {
-        response += d;
+        incoming.setEncoding('utf8');
+        incoming.on('data', function (d) {
+          response += d;
+        });
+
+        incoming.on('error', cleanUp);
+        incoming.on('end', cleanUp);
+      }, cleanUp);
+
+      req.on('error', function(err){
+          console.log("http-aws-es error: " + JSON.stringify(err));
       });
+      req.on('error', cleanUp);
 
-      incoming.on('error', cleanUp);
-      incoming.on('end', cleanUp);
-    }, cleanUp);
+      req.setNoDelay(true);
+      req.setSocketKeepAlive(true);
 
-    req.on('error', cleanUp);
-
-    req.setNoDelay(true);
-    req.setSocketKeepAlive(true);
-
-    return function () {
-      req.abort();
-    };
+      return function () {
+        req.abort();
+      };
+    }, this));
   }
 }
 
